@@ -6,7 +6,6 @@ Created on Sun Jun  4 16:53:30 2023
 """
 
 
-import plotly.offline as poff
 import plotly.graph_objs as go
 
 
@@ -286,5 +285,7 @@ def half_court():
     return fig
 
 
-fig = half_court()
-poff.plot(fig, config=dict({'scrollZoom': True}))
+if __name__ == "__main__":
+    import plotly.offline as poff
+    fig = half_court()
+    poff.plot(fig, config=dict({'scrollZoom': True}))
