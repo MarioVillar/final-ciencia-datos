@@ -6,6 +6,7 @@ Created on Sat Jun 10 20:01:27 2023
 """
 
 import plotly.express as px
+import plotly.graph_objects as go
 
 from preprocess_dataset import load_train_data, preprocess
 
@@ -45,6 +46,36 @@ def histogram(df, col_name):
     return fig
 
 
+def expensesBarChart(df, exp_col_names, cryoSleep_col_name):
+    # Crear figura
+    fig = go.Figure()
+
+    # Crear histogramas para cada columna
+    for col in exp_col_names:
+        true_mean = df[col][df_train[cryoSleep_col_name] == 1].mean()
+        false_mean = df[col][df_train[cryoSleep_col_name] == 0].mean()
+
+        fig.add_trace(go.Bar(name=col, x=["False", "True"],
+                             y=[false_mean, true_mean],
+                             text=[false_mean, true_mean],
+                             textposition='auto',
+                             texttemplate='%{y:.2f}'
+                             )
+                      )
+
+    # Ajustar la orientación del texto
+    fig.update_traces(textangle=0)
+
+    # Configurar diseño de la figura
+    fig.update_layout(
+        title='Total gastado de media en cada servicio según si el pasajero estuvo criogenizado o no',
+        xaxis_title='CryoSleep',
+        yaxis_title='Total gastado de media'
+    )
+
+    return fig
+
+
 if __name__ == "__main__":
     import plotly.offline as poff
 
@@ -52,7 +83,10 @@ if __name__ == "__main__":
 
     # fig = null_values_heatmap(df_train)
 
-    fig = histogram(df_train, "Destination")
+    # fig = histogram(df_train, "Destination")
+
+    fig = expensesHist(df_train, [
+                       'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'], "CryoSleep")
 
     # df_train = preprocess(df_train)
 
