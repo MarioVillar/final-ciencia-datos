@@ -5,6 +5,8 @@ Created on Sat Jun 10 20:01:27 2023
 @author: mario
 """
 
+import numpy as np
+
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -76,6 +78,22 @@ def expensesBarChart(df, exp_col_names, cryoSleep_col_name):
     return fig
 
 
+def expensesBoxPlots(df, exp_col_names):
+    # Crear figura
+    fig = go.Figure()
+
+    # Crear box plots para cada columna
+    for col in exp_col_names:
+        # x_values = np.where(df['Transported'], col + ' (trans.)', col + ' (no trans.)')
+        # fig.add_trace(go.Box(x=x_values, y=df[col], name=col))
+        fig.add_trace(go.Box(y=df[col], name=col))
+
+    # fig.update_layout(title='Diagramas de cajas de las variables numéricas.', boxmode='group')
+    fig.update_layout(title='Diagramas de cajas de las variables numéricas.')
+
+    return fig
+
+
 if __name__ == "__main__":
     import plotly.offline as poff
 
@@ -85,8 +103,9 @@ if __name__ == "__main__":
 
     # fig = histogram(df_train, "Destination")
 
-    fig = expensesHist(df_train, [
-                       'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'], "CryoSleep")
+    # fig = expensesBarChart(df_train, ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'], "CryoSleep")
+
+    fig = expensesBoxPlots(df_train, ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'])
 
     # df_train = preprocess(df_train)
 

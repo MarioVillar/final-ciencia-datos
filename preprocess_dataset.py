@@ -5,40 +5,16 @@ Created on Sun Jun  4 17:00:55 2023
 @author: mario
 """
 
+from preprocess_attributes import preprocessAttributes, load_train_data, reallocateTransported, zeroExpensesCryosleep
 
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import KNNImputer
 
 
-def load_train_data():
-    return pd.read_csv("../dataset/train.csv")
-
-
-def load_test_data():
-    return pd.read_csv("../dataset/test.csv")
-
-
-# Preprocesar los valores de PassengerId
-def preprocessId(df):
-    # Función de transformación
-    def convertir_formato(valor):
-        gggg, pp = valor.split('_')
-        return int(gggg) * 10 + int(pp)
-
-    # Aplicar la función de transformación a la serie
-    df["PassengerId"] = df["PassengerId"].apply(convertir_formato)
-
-    return df
-
-
-# Preprocesar los valores de CryoSleep
-def preprocessCryoSleep(df):
-    df["CryoSleep"] = df["CryoSleep"].replace({True: 1, False: 0})
-    return df
-
-
-# Entrenar y aplicar One Hot Encoding mediante un encoder a una columna particular
+# Entrenar y aplicar One Hot Encoding a una columna particular. Se guarda el encoder en
+#   preprocess_data con la key "<col_name>Enc"
 def fitTransformOneHotEnc(df, col_name, preprocess_data):
     enc = OneHotEncoder(handle_unknown='ignore')
 
@@ -50,14 +26,12 @@ def fitTransformOneHotEnc(df, col_name, preprocess_data):
 
     df = transformOneHotEnc(df, col_name, enc)
 
-    df = df.drop([col_name], axis=1)
-
     preprocess_data[col_name + "Enc"] = enc
 
     return df, preprocess_data
 
 
-# Aplicar One Hot Encoding mediante un encoder a una columna particular
+# Aplicar One Hot Encoding a una columna particular
 def transformOneHotEnc(df, col_name, enc):
     df_enc = df[col_name].to_frame()
 
@@ -76,32 +50,77 @@ def transformOneHotEnc(df, col_name, enc):
 
     df = df.drop(["ValorDesconocido"], axis=1)
 
+    df = df.drop([col_name], axis=1)
+
     return df
 
 
-# Hacer One Hot Encoding de todas las variables categoricas
-def oneHotEncoding(df, preprocess_data):
-    # One Hot Encoding de HomePlanet
-    df, preprocess_data = fitTransformOneHotEnc(df, "HomePlanet", preprocess_data)
+# Hacer One Hot Encoding de todas las variables categoricas. En modo entrenamiento se hace un
+#   fit de los encoders y se guardan en preprocess_data; en test se utilizand los encoders
+#   de preprocess_data para realizar el One Hot Encoding
+def oneHotEncoding(df, preprocess_data, train=True):
+    if train:
+        # One Hot Encoding de HomePlanet
+        df, preprocess_data = fitTransformOneHotEnc(df, "HomePlanet", preprocess_data)
 
-    # One Hot Encoding de Destination
-    df, preprocess_data = fitTransformOneHotEnc(df, "Destination", preprocess_data)
+        # One Hot Encoding de Destination
+        df, preprocess_data = fitTransformOneHotEnc(df, "Destination", preprocess_data)
+    else:
+        # One Hot Encoding de HomePlanet
+        df = fitTransformOneHotEnc(df, "HomePlanet", preprocess_data["HomePlanetEnc"])
+
+        # One Hot Encoding de Destination
+        df = fitTransformOneHotEnc(df, "Destination", preprocess_data["DestinationEnc"])
+
+    return df, preprocess_data
+
+
+# Imputar valores perdidos mediante un KNN
+def knnImputer(df, preprocess_data={}, train=True):
+    if train:
+        # Quitar la columna transported
+        df_train = df.drop(["Transported"], axis=1)
+
+        imputer = KNNImputer(n_neighbors=2, weights="uniform")
+
+        df_train = imputer.fit_transform(df_train)
+
+        df[df.columns[:-1]] = df_train
+
+        preprocess_data["KnnImputer"] = imputer
+    else:
+        df = preprocess_data["KnnImputer"].transform(df)
+
+    # Redondear a 0 o 1 los valores de las caracteristicas enteras
+    int_charac = ["CryoSleep", "DeckNumber", "CabinNumber", "Stribor",
+                  "VIP", "NameLength", "NameInitial", "SurnameInitial",
+                  "Earth", "Europa", "Mars",
+                  "55 Cancri e", "PSO J318.5-22", "TRAPPIST-1e"]
+
+    for col in int_charac:
+        df[col] = df[col].round()
 
     return df, preprocess_data
 
 
 # Preprocesar todo el df
-def preprocess(df):
-    preprocess_data = {}
+def preprocessDataset(df, preprocess_data={}, train=True):
+    if not train and ("HomePlanetEnc" not in preprocess_data or "DestinationEnc" not in preprocess_data):
+        raise TypeError("En test se debe proporcionar HomePlanetEnc, DestinationEnc en preprocess_data")
 
-    # Preprocesar PassengerId
-    df = preprocessId(df)
-
-    # Preprocesar CryoSleep
-    df = preprocessCryoSleep(df)
+    df = preprocessAttributes(df)
 
     # Realizar One Hot Encoding de las variables categoricas
-    df, preprocess_data = oneHotEncoding(df, preprocess_data)
+    df, preprocess_data = oneHotEncoding(df, preprocess_data, train)
+
+    # Reposicionar al final la columna transported (si existe, por lo que solo en train)
+    df = reallocateTransported(df)
+
+    # Imputar valores perdidos mediante KNN
+    df, preprocess_data = knnImputer(df, preprocess_data, train)
+
+    # Cuando el pasajero estuvo en cryosleep el gasto es cero
+    df = zeroExpensesCryosleep(df)
 
     return df, preprocess_data
 
@@ -114,6 +133,6 @@ def preprocess(df):
 if __name__ == "__main__":
     df_train = load_train_data()
 
-    df_train, preprocess_data = preprocess(df_train)
+    df_train, preprocess_data = preprocessDataset(df_train)
 
     # print(df_train)
