@@ -5,18 +5,25 @@ Created on Sun Jun  4 17:00:55 2023
 @author: mario
 """
 
-from preprocess_attributes import preprocessAttributes, load_train_data, reallocateTransported, zeroExpensesCryosleep
+from preprocess_attributes import preprocessAttributes, load_train_data, load_test_data
 
 import pandas as pd
 import numpy as np
+
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import KNNImputer
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.ensemble import IsolationForest
+from sklearn.covariance import EllipticEnvelope
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
 
 
 # Entrenar y aplicar One Hot Encoding a una columna particular. Se guarda el encoder en
 #   preprocess_data con la key "<col_name>Enc"
 def fitTransformOneHotEnc(df, col_name, preprocess_data):
-    enc = OneHotEncoder(handle_unknown='ignore')
+    enc = OneHotEncoder(handle_unknown="ignore")
 
     df_enc = df[col_name].to_frame()
 
@@ -58,7 +65,7 @@ def transformOneHotEnc(df, col_name, enc):
 # Hacer One Hot Encoding de todas las variables categoricas. En modo entrenamiento se hace un
 #   fit de los encoders y se guardan en preprocess_data; en test se utilizand los encoders
 #   de preprocess_data para realizar el One Hot Encoding
-def oneHotEncoding(df, preprocess_data, train=True):
+def oneHotEncoding(df, preprocess_data, train):
     if train:
         # One Hot Encoding de HomePlanet
         df, preprocess_data = fitTransformOneHotEnc(df, "HomePlanet", preprocess_data)
@@ -67,33 +74,28 @@ def oneHotEncoding(df, preprocess_data, train=True):
         df, preprocess_data = fitTransformOneHotEnc(df, "Destination", preprocess_data)
     else:
         # One Hot Encoding de HomePlanet
-        df = fitTransformOneHotEnc(df, "HomePlanet", preprocess_data["HomePlanetEnc"])
+        df = transformOneHotEnc(df, "HomePlanet", preprocess_data["HomePlanetEnc"])
 
         # One Hot Encoding de Destination
-        df = fitTransformOneHotEnc(df, "Destination", preprocess_data["DestinationEnc"])
+        df = transformOneHotEnc(df, "Destination", preprocess_data["DestinationEnc"])
 
     return df, preprocess_data
 
 
 # Imputar valores perdidos mediante un KNN
-def knnImputer(df, preprocess_data={}, train=True):
+def knnImputer(df, preprocess_data, train):
     if train:
-        # Quitar la columna transported
-        df_train = df.drop(["Transported"], axis=1)
-
         imputer = KNNImputer(n_neighbors=2, weights="uniform")
 
-        df_train = imputer.fit_transform(df_train)
-
-        df[df.columns[:-1]] = df_train
+        df.loc[:, :] = imputer.fit_transform(df)
 
         preprocess_data["KnnImputer"] = imputer
     else:
-        df = preprocess_data["KnnImputer"].transform(df)
+        df.loc[:, :] = preprocess_data["KnnImputer"].transform(df)
 
     # Redondear a 0 o 1 los valores de las caracteristicas enteras
     int_charac = ["CryoSleep", "DeckNumber", "CabinNumber", "Stribor",
-                  "VIP", "NameLength", "NameInitial", "SurnameInitial",
+                  "NameLength", "NameInitial", "SurnameInitial",
                   "Earth", "Europa", "Mars",
                   "55 Cancri e", "PSO J318.5-22", "TRAPPIST-1e"]
 
@@ -103,36 +105,121 @@ def knnImputer(df, preprocess_data={}, train=True):
     return df, preprocess_data
 
 
+# Detectar y eliminar los outliers del dataset
+def removeOutliers(df, method="lof"):
+    df_outlier_col = df[["Age", "TotalExpense"]]
+
+    outlier_mask = None
+
+    # LOF detection
+    if method == "lof":
+        clf = LocalOutlierFactor(n_neighbors=2, contamination=0.06)
+        outlier_mask = clf.fit_predict(df_outlier_col)
+    # Isolation Forest detection
+    elif method == "isof":
+        isof = IsolationForest(random_state=0, contamination=0.06)
+        outlier_mask = isof.fit_predict(df_outlier_col)
+    elif method == "elip":
+        ellenv = EllipticEnvelope(random_state=0, contamination=0.06)
+        outlier_mask = ellenv.fit_predict(df_outlier_col)
+
+    if outlier_mask is not None:
+        df = df[outlier_mask == 1]
+
+    return df
+
+
+# Escalar las caracteristicas numericas del dataset. Permite normalizarlas o estandarizarlas
+def scaleAtributtes(df, preprocess_data, train, method="norm"):
+    # Solo se estandarizan las columnas numericas
+    scaleCols = ["PassengerId", "Age", "DeckNumber", "CabinNumber", "NameLength",
+                 "NameInitial", "SurnameInitial", "TotalExpense"]
+
+    if train:
+        # Crear, entrenar y aplicar el Standarizado a los datos de entrenamiento
+        if method == "std":
+            scaler = StandardScaler()
+        else:
+            scaler = MinMaxScaler()
+
+        df.loc[:, scaleCols] = scaler.fit_transform(df[scaleCols])
+
+        # Guardar el scaler
+        preprocess_data["Scaler"] = scaler
+    else:
+        # Aplicar el scaler (ya entrenado) a los datos de test
+        df.loc[:, scaleCols] = preprocess_data["Scaler"].transform(df[scaleCols])
+
+    return df, preprocess_data
+
+
+# Aplicar PCA para reducir la dimensionalidad
+def applyPCA(df, preprocess_data, train):
+    if train:
+        # Crear, entrenar y aplicar PCA a los datos de entrenamiento
+        pca = PCA(n_components=0.95)
+
+        df = pd.DataFrame(pca.fit_transform(df))
+
+        preprocess_data["PCA"] = pca
+    else:
+        # Aplicar PCA (ya entrenado) a los datos de test
+        df = pd.DataFrame(preprocess_data["PCA"].transform(df))
+
+    return df, preprocess_data
+
+
 # Preprocesar todo el df
-def preprocessDataset(df, preprocess_data={}, train=True):
-    if not train and ("HomePlanetEnc" not in preprocess_data or "DestinationEnc" not in preprocess_data):
+def preprocessDataset(df, train, preprocess_data={}):
+    if not train and ("HomePlanetEnc" not in preprocess_data or "DestinationEnc" not in preprocess_data or
+                      "KnnImputer" not in preprocess_data or "Scaler" not in preprocess_data):
         raise TypeError("En test se debe proporcionar HomePlanetEnc, DestinationEnc en preprocess_data")
 
+    transported_col = None
+
+    # Extraer la columna "Transported"
+    if "Transported" in df.columns:
+        transported_col = df.pop('Transported')
+
+    # Aplicar el preprocesamiento de los diferentes atributos del dataset
     df = preprocessAttributes(df)
 
     # Realizar One Hot Encoding de las variables categoricas
     df, preprocess_data = oneHotEncoding(df, preprocess_data, train)
 
-    # Reposicionar al final la columna transported (si existe, por lo que solo en train)
-    df = reallocateTransported(df)
-
     # Imputar valores perdidos mediante KNN
     df, preprocess_data = knnImputer(df, preprocess_data, train)
 
-    # Cuando el pasajero estuvo en cryosleep el gasto es cero
-    df = zeroExpensesCryosleep(df)
+    # En entrenamiento se eliminan outliers
+    if train:
+        df = removeOutliers(df)
 
-    return df, preprocess_data
+    # Estandarizar los datos numericos
+    df, preprocess_data = scaleAtributtes(df, preprocess_data, train)
+
+    # # Aplicar PCA
+    # df, preprocess_data = applyPCA(df, preprocess_data, train)
+
+    # Insertar la columna "Transported" al final del DataFrame
+    if transported_col is not None:
+        df.insert(len(df.columns), 'Transported', transported_col)
+
+    if train:
+        return df, preprocess_data
+    else:
+        return df
 
 
-# def load_train_preprocessed():
-#     df_train = load_train_data()
-#     return preprocess(df_train)
+def load_train_preprocessed():
+    df_train = load_train_data()
+    return preprocessDataset(df_train, train=True)
 
 
 if __name__ == "__main__":
     df_train = load_train_data()
 
-    df_train, preprocess_data = preprocessDataset(df_train)
+    df_train, preprocess_data = preprocessDataset(df_train, train=True)
 
-    # print(df_train)
+    df_test = load_test_data()
+
+    df_test = preprocessDataset(df_test, False, preprocess_data)

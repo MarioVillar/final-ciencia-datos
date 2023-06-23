@@ -55,7 +55,8 @@ def preprocessCabin(df):
 
 
 def preprocessVip(df):
-    df["VIP"] = df["VIP"].replace({True: 1, False: 0})
+    # df["VIP"] = df["VIP"].replace({True: 1, False: 0})
+    df = df.drop(["VIP"], axis=1)
     return df
 
 
@@ -73,12 +74,21 @@ def preprocessName(df):
     return df
 
 
+def preprocessExpenses(df):
+    df["TotalExpense"] = df['RoomService'] + df['FoodCourt'] + df['ShoppingMall'] + df['Spa'] + df['VRDeck']
+
+    df = df.drop(['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'], axis=1)
+
+    return df
+
+
 # Convertir los NaN en cero cuando el pasajero estuvo en CryoSleep
 def zeroExpensesCryosleep(df):
     exp_col_names = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
 
     for col in exp_col_names:
         df.loc[df["CryoSleep"] == True, col] = 0
+        df.loc[df["CryoSleep"].isna(), col] = 0
 
     return df
 
@@ -100,16 +110,9 @@ def preprocessAttributes(df):
     # Preprocesar Name
     df = preprocessName(df)
 
-    return df
+    df = zeroExpensesCryosleep(df)
 
-
-# Colocar al final la columna transported
-def reallocateTransported(df):
-    if "Transported" in df.columns:
-        # Extraer la columna "Transported"
-        transported_col = df.pop('Transported')
-
-        # Insertar la columna "Transported" al final del DataFrame
-        df.insert(len(df.columns), 'Transported', transported_col)
+    # Preprocesar caracteristicas numericas
+    df = preprocessExpenses(df)
 
     return df
