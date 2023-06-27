@@ -1,9 +1,13 @@
-# Índice
+Repository for the final project of the Data Science course in the Master's in Artificial Intelligence Research at UIMP. The project is focused on analyzing the dataset [Spaceship Titanic](https://www.kaggle.com/competitions/spaceship-titanic) and modeling a solution for it.
 
-- [Índice](#índice)
-  - [Guía de commits](#guía-de-commits)
+The code includes the generation of various graphs that allow visualizing the dataset characteristics, dataset preprocessing, and training of an XGBoost model.
 
-## Guía de commits
+# Index
+
+- [Index](#index)
+  - [Commits guide](#commits-guide)
+
+## Commits guide
 
 ```
 ♻️ [Refactor code]
