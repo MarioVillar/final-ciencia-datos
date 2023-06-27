@@ -18,6 +18,7 @@ from sklearn.covariance import EllipticEnvelope
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
+from sklearn.manifold import LocallyLinearEmbedding
 
 
 # Entrenar y aplicar One Hot Encoding a una columna particular. Se guarda el encoder en
@@ -153,27 +154,15 @@ def scaleAtributtes(df, preprocess_data, train, method="norm"):
     return df, preprocess_data
 
 
-# Aplicar PCA para reducir la dimensionalidad
-def applyPCA(df, preprocess_data, train):
-    if train:
-        # Crear, entrenar y aplicar PCA a los datos de entrenamiento
-        pca = PCA(n_components=0.95)
-
-        df = pd.DataFrame(pca.fit_transform(df))
-
-        preprocess_data["PCA"] = pca
-    else:
-        # Aplicar PCA (ya entrenado) a los datos de test
-        df = pd.DataFrame(preprocess_data["PCA"].transform(df))
-
-    return df, preprocess_data
-
-
 # Preprocesar todo el df
-def preprocessDataset(df, train, preprocess_data={}):
-    if not train and ("HomePlanetEnc" not in preprocess_data or "DestinationEnc" not in preprocess_data or
-                      "KnnImputer" not in preprocess_data or "Scaler" not in preprocess_data):
+def preprocessDataset(df, train, preprocess_data={}, model_type=None):
+    if not train and ("HomePlanetEnc" not in preprocess_data or "DestinationEnc" not in preprocess_data
+                      or "KnnImputer" not in preprocess_data):
+        # or "Scaler" not in preprocess_data
         raise TypeError("En test se debe proporcionar HomePlanetEnc, DestinationEnc en preprocess_data")
+
+    if train:
+        df = shuffle_df(df)
 
     transported_col = None
 
@@ -195,10 +184,17 @@ def preprocessDataset(df, train, preprocess_data={}):
         df = removeOutliers(df)
 
     # Estandarizar los datos numericos
-    df, preprocess_data = scaleAtributtes(df, preprocess_data, train)
+    df, preprocess_data = scaleAtributtes(df, preprocess_data, train, method="std")
 
-    # # Aplicar PCA
-    # df, preprocess_data = applyPCA(df, preprocess_data, train)
+    # Eliminar las caracteristicas que no tienen mucho sentido
+    df = df.drop(["PassengerId", "NameLength", "NameInitial", "SurnameInitial"], axis=1)
+
+    # Eliminar caracteristicas con alta correlacion con otras ('55 Cancri e' y 'Europa' respectivamente)
+    df = df.drop(["TRAPPIST-1e", "DeckNumber"], axis=1)
+
+    if model_type == "xbst":
+        df = df[['CryoSleep', 'TotalExpense', 'CabinNumber', 'Age', 'Stribor', "Earth"]]
+        # https://scikit-learn.org/stable/modules/permutation_importance.html#:~:text=The%20permutation%20feature%20importance%20is,model%20depends%20on%20the%20feature.
 
     # Insertar la columna "Transported" al final del DataFrame
     if transported_col is not None:
@@ -210,9 +206,15 @@ def preprocessDataset(df, train, preprocess_data={}):
         return df
 
 
-def load_train_preprocessed():
+def shuffle_df(df):
+    indices_aleatorios = np.random.permutation(df.index)
+    df_reordenado = df.reindex(indices_aleatorios).reset_index(drop=True)
+    return df_reordenado
+
+
+def load_train_preprocessed(model_type=None):
     df_train = load_train_data()
-    return preprocessDataset(df_train, train=True)
+    return preprocessDataset(df_train, train=True, model_type=model_type)
 
 
 if __name__ == "__main__":

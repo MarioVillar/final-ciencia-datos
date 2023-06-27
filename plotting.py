@@ -144,7 +144,7 @@ def corrHeatmap(df):
 
     corrMatrix = df.corr()
 
-    fig = px.imshow(corrMatrix)
+    fig = px.imshow(corrMatrix, color_continuous_scale='RdBu_r')
 
     fig.update_layout(title='Matriz de correlación entre atributos del dataset.', title_x=0.5)
 
@@ -167,7 +167,24 @@ def expensesHistogram(df):
         fig.update_xaxes(title_text=exp_col_names[i], row=(i // 2) + 1, col=(i % 2) + 1)
 
     # Configurar diseño de la figura
-    fig.update_layout(title='Histogramas de las características numéricas', showlegend=False)
+    fig.update_layout(title='Histogramas de las características económicas', showlegend=False)
+
+    return fig
+
+
+def expensesScatters(df):
+    exp_col_names = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
+
+    # Crear figura con subplots
+    fig = make_subplots(rows=3, cols=2)
+
+    # Iterar sobre las columnas y agregar un histograma en cada subplot
+    for i in range(len(exp_col_names)):
+        fig.add_trace(go.Scatter(x=df[exp_col_names[i]], y=df.index, mode='markers'), row=(i // 2) + 1, col=(i % 2) + 1)
+        fig.update_xaxes(title_text=exp_col_names[i], row=(i // 2) + 1, col=(i % 2) + 1)
+
+    # Configurar diseño de la figura
+    fig.update_layout(title='Distribución de valores de las características económicas', showlegend=False)
 
     return fig
 
@@ -187,7 +204,9 @@ if __name__ == "__main__":
 
     # fig = boxPlot(df_train, "Age")
 
-    df_train, preprocess_data = preprocessDataset(df_train)
+    fig = expensesScatters(df_train)
+
+    # df_train, preprocess_data = preprocessDataset(df_train, train=True)
 
     # fig = histogramTransported(df_train, "Age")
 
@@ -196,6 +215,6 @@ if __name__ == "__main__":
     # fig = expensesHistogram(df_train)
 
     # fig = histogram(df_train, "TotalExpense")
-    fig = boxPlot(df_train, "TotalExpense")
+    # fig = boxPlot(df_train, "TotalExpense")
 
     poff.plot(fig, config=dict({'scrollZoom': True}))
