@@ -83,20 +83,20 @@ def optunaOptimize(objective, n_trials, study_name, n_jobs=1, save_study=True):
 
 
 if __name__ == "__main__":
-    MODEL_NAME = "xbstStdScale"
+    MODEL_NAME = "xbst"
 
     train_dataset, train_target, test_dataset, test_passId = prepareDatasets(model_type=MODEL_NAME)
 
-    # study = optunaOptimize(optunaXBoost, n_trials=1000, study_name=MODEL_NAME, n_jobs=6)
+    study = optunaOptimize(optunaXBoost, n_trials=1000, study_name=MODEL_NAME, n_jobs=6)
 
     study = joblib.load("../optuna_studies/xbst.pkl")
 
     best_params = study.best_params
 
-    # xbst = xgb.XGBClassifier(**best_params)
+    xbst = xgb.XGBClassifier(**best_params)
 
-    # # Entrenar el clasificador
-    # xbst.fit(train_dataset, train_target, verbose=0)
+    # Entrenar el clasificador
+    xbst.fit(train_dataset, train_target, verbose=0)
 
-    # pred = makePredictions(xbst, test_dataset, test_passId,
-    #                        "../predicciones/xBoostOptunaPred.csv", '../modelos/xBoostOptunaModel.pkl')
+    pred = makePredictions(xbst, test_dataset, test_passId,
+                           "../predicciones/xBoostOptunaPred.csv", '../modelos/xBoostOptunaModel.pkl')

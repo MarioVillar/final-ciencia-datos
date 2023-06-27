@@ -192,10 +192,6 @@ def preprocessDataset(df, train, preprocess_data={}, model_type=None):
     # Eliminar caracteristicas con alta correlacion con otras ('55 Cancri e' y 'Europa' respectivamente)
     df = df.drop(["TRAPPIST-1e", "DeckNumber"], axis=1)
 
-    if model_type == "xbst":
-        df = df[['CryoSleep', 'TotalExpense', 'CabinNumber', 'Age', 'Stribor', "Earth"]]
-        # https://scikit-learn.org/stable/modules/permutation_importance.html#:~:text=The%20permutation%20feature%20importance%20is,model%20depends%20on%20the%20feature.
-
     # Insertar la columna "Transported" al final del DataFrame
     if transported_col is not None:
         df.insert(len(df.columns), 'Transported', transported_col)

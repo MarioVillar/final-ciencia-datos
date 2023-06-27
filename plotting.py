@@ -194,27 +194,37 @@ if __name__ == "__main__":
 
     df_train = load_train_data()
 
-    # fig = null_values_heatmap(df_train)
+    fig = null_values_heatmap(df_train)
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = histogram(df_train, "VIP")
+    fig = histogram(df_train, "VIP")
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = expensesBarChart(df_train, ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'], "CryoSleep")
+    fig = expensesBarChart(df_train, ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'], "CryoSleep")
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = expensesBoxPlots(df_train, ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'])
+    fig = expensesBoxPlots(df_train, ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck'])
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = boxPlot(df_train, "Age")
+    fig = boxPlot(df_train, "Age")
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
     fig = expensesScatters(df_train)
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # df_train, preprocess_data = preprocessDataset(df_train, train=True)
+    df_train, preprocess_data = preprocessDataset(df_train, train=True)
 
-    # fig = histogramTransported(df_train, "Age")
+    fig = histogramTransported(df_train, "Age")
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = corrHeatmap(df_train)
+    fig = corrHeatmap(df_train)
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = expensesHistogram(df_train)
+    fig = expensesHistogram(df_train)
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
-    # fig = histogram(df_train, "TotalExpense")
-    # fig = boxPlot(df_train, "TotalExpense")
+    fig = histogram(df_train, "TotalExpense")
+    poff.plot(fig, config=dict({'scrollZoom': True}))
 
+    fig = boxPlot(df_train, "TotalExpense")
     poff.plot(fig, config=dict({'scrollZoom': True}))
